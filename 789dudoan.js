@@ -5,7 +5,7 @@ const cors = require('cors');
 
 // Cấu hình
 const PORT = process.env.PORT || 3000;
-const WS_URL = ws://160.191.243.121:3060/?id=mrtinhios&key=vantinh5907pq';
+const WS_URL = 'ws://160.191.243.121:3060/?id=mrtinhios&key=vantinh5907pq';
 const HISTORY_MAX_LENGTH = 100;
 
 // Biến toàn cục
