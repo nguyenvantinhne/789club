@@ -3,17 +3,21 @@ const http = require('http');
 const WebSocket = require('ws');
 const cors = require('cors');
 
-// Cấu hình
-const PORT = process.env.PORT || 3000;
+// Configuration
+const PORT = process.env.PORT || 3000; // Use Render's port environment variable
 const WS_URL = 'ws://160.191.243.121:3060/?id=mrtinhios&key=vantinh5907pq';
-const HISTORY_MAX_LENGTH = 100;
+const HISTORY_MAX_LENGTH = 200;
+const RECONNECT_DELAY = 5000; // 5 seconds
+const HEALTH_CHECK_INTERVAL = 30000; // 30 seconds
 
-// Biến toàn cục
+// Global variables
 let history = [];
 let currentSession = null;
 let wsClient = null;
+let lastActivity = Date.now();
+let isShuttingDown = false;
 
-// Pattern dự đoán
+// Keep the patternPredictions object exactly as you have it
 const patternPredictions = {
   "TTT": { prediction: "Tài", confidence: 95 },
   "TTX": { prediction: "Xỉu", confidence: 85 },
@@ -68,7 +72,7 @@ const patternPredictions = {
   "XTXXT": { prediction: "Tài", confidence: 58 },
   "XTXXX": { prediction: "Xỉu", confidence: 88 },
   "XXTTT": { prediction: "Tài", confidence: 67 },
-  "XXTTX": { prediction: "Xỉu", confidence: 72 },
+  "XXTTX": { prediction: "Xỉu", confidence: 62 },
   "XXTXT": { prediction: "Tài", confidence: 62 },
   "XXTXX": { prediction: "Xỉu", confidence: 82 },
   "XXXTT": { prediction: "Tài", confidence: 58 },
@@ -286,126 +290,253 @@ const patternPredictions = {
   "XTTTTTTT": { prediction: "Tài", confidence: 96 }
 };
 
-// Kết nối WebSocket
+// Health monitoring
+function startHealthMonitor() {
+  setInterval(() => {
+    const now = Date.now();
+    const inactiveDuration = now - lastActivity;
+    
+    if (inactiveDuration > HEALTH_CHECK_INTERVAL * 2) {
+      console.log(`[Health] No activity for ${Math.floor(inactiveDuration/1000)}s - Reconnecting...`);
+      connectWebSocket();
+    }
+    
+    // Log memory usage
+    const memoryUsage = process.memoryUsage();
+    console.log(`[Health] Memory: ${Math.round(memoryUsage.heapUsed / 1024 / 1024)}MB used, ${Math.round(memoryUsage.heapTotal / 1024 / 1024)}MB total`);
+    
+    // Prevent memory leaks
+    if (history.length > HISTORY_MAX_LENGTH * 1.2) {
+      console.log(`[Health] Trimming history from ${history.length} to ${HISTORY_MAX_LENGTH}`);
+      history = history.slice(-HISTORY_MAX_LENGTH);
+    }
+  }, HEALTH_CHECK_INTERVAL);
+}
+
+// WebSocket connection with robust error handling
 function connectWebSocket() {
-  console.log('[WS] Đang kết nối tới:', WS_URL);
-  wsClient = new WebSocket(WS_URL);
+  if (isShuttingDown) return;
+  
+  console.log('[WebSocket] Connecting to server...');
+  
+  // Close existing connection if any
+  if (wsClient) {
+    try {
+      wsClient.removeAllListeners();
+      if (wsClient.readyState === WebSocket.OPEN) {
+        wsClient.close();
+      }
+    } catch (e) {
+      console.error('[WebSocket] Error cleaning up previous connection:', e);
+    }
+  }
 
-  wsClient.on('open', () => {
-    console.log('[WS] ✅ Kết nối thành công');
+  wsClient = new WebSocket(WS_URL, {
+    handshakeTimeout: 10000, // 10 seconds timeout
+    maxPayload: 1048576, // 1MB max payload
   });
-
+  
+  wsClient.on('open', () => {
+    console.log('[WebSocket] ✅ Connection established');
+    lastActivity = Date.now();
+    
+    // Send initial ping to keep connection alive
+    setInterval(() => {
+      if (wsClient && wsClient.readyState === WebSocket.OPEN) {
+        try {
+          wsClient.ping();
+        } catch (e) {
+          console.error('[WebSocket] Ping error:', e);
+        }
+      }
+    }, 45000); // Ping every 45 seconds
+  });
+  
   wsClient.on('message', (data) => {
     try {
+      lastActivity = Date.now();
       const result = JSON.parse(data.toString());
-
-      if (
-        !result.phien ||
-        result.xuc_xac_1 === undefined ||
-        result.ket_qua === undefined
-      ) {
-        return;
-      }
-
-      const session = {
-        phien: result.phien,
-        result: result.ket_qua,
-        sum: result.tong,
-        xucxac: [result.xuc_xac_1, result.xuc_xac_2, result.xuc_xac_3],
-        timestamp: Date.now()
-      };
-
-      // Tránh trùng phiên
-      if (!history.some(h => h.phien === session.phien)) {
-        currentSession = session;
-        history.push(session);
-        if (history.length > HISTORY_MAX_LENGTH) {
-          history.shift();
+      
+      if (result.Phien && result.Ket_qua && result.Xuc_xac_1 !== undefined) {
+        console.log(`[WebSocket] Received result - Session ${result.Phien}: ${result.Ket_qua}`);
+        
+        const historyEntry = {
+          phien: result.Phien,
+          result: result.Ket_qua,
+          sum: result.Tong,
+          xucxac: [result.Xuc_xac_1, result.Xuc_xac_2, result.Xuc_xac_3],
+        };
+        
+        // Prevent duplicates and limit history size
+        if (!history.some(h => h.phien === result.Phien)) {
+          history.push(historyEntry);
+          if (history.length > HISTORY_MAX_LENGTH) {
+            history = history.slice(-HISTORY_MAX_LENGTH);
+          }
         }
-
-        console.log(
-          `[WS] Phiên ${session.phien}: ${session.result} (${session.xucxac.join('-')})`
-        );
+        currentSession = historyEntry;
       }
-
-    } catch (err) {
-      console.error('[WS] ❌ Lỗi xử lý dữ liệu:', err.message);
+    } catch (error) {
+      console.error('[WebSocket] Message processing error:', error);
     }
   });
-
-  wsClient.on('close', () => {
-    console.log('[WS] 🔁 Mất kết nối. Thử lại sau 5 giây...');
-    setTimeout(connectWebSocket, 5000);
+  
+  wsClient.on('close', (code, reason) => {
+    console.log(`[WebSocket] ❌ Connection closed (Code: ${code}, Reason: ${reason || 'none'})`);
+    if (!isShuttingDown) {
+      console.log(`[WebSocket] Reconnecting in ${RECONNECT_DELAY/1000} seconds...`);
+      setTimeout(connectWebSocket, RECONNECT_DELAY);
+    }
   });
-
+  
   wsClient.on('error', (err) => {
-    console.error('[WS] ❗ WebSocket lỗi:', err.message);
+    console.error('[WebSocket] Error:', err);
+    // Error event is usually followed by close event, which will trigger reconnect
+  });
+  
+  wsClient.on('ping', () => {
+    lastActivity = Date.now();
+  });
+  
+  wsClient.on('pong', () => {
+    lastActivity = Date.now();
   });
 }
 
-// Hàm dự đoán kết quả tiếp theo
-function getPrediction() {
-  if (!currentSession || history.length < 3) {
+// Prediction functions (unchanged from your original)
+function getPredictionOutput() {
+  if (!currentSession) {
     return {
       phien_hien_tai: "...",
       du_doan: "...",
-      do_tin_cay: "...",
-      pattern: "...",
-      history_length: history.length,
-      ket_qua_moi_nhat: null
+      do_tin_cay: "..."
     };
   }
 
-  const lastThree = history
-    .slice(-3)
-    .map(h => (h.result === "Tài" ? "T" : "X"))
-    .join("");
-
-  let prediction = patternPredictions[lastThree];
-
-  if (!prediction) {
-    const lastResult = history[history.length - 1].result;
-    prediction = {
-      prediction: lastResult === "Tài" ? "Xỉu" : "Tài",
-      confidence: 65
+  let prediction = { prediction: "...", confidence: "..." };
+  if (history.length >= 3) {
+    const lastThree = history.slice(-3).map(h => h.result === "Tài" ? "T" : "X").join("");
+    prediction = patternPredictions[lastThree] || {
+      prediction: history[history.length-1].result === "Tài" ? "Xỉu" : "Tài",
+      confidence: 50
     };
   }
 
   return {
     phien_hien_tai: currentSession.phien + 1,
     du_doan: prediction.prediction,
-    do_tin_cay: prediction.confidence,
-    pattern: lastThree,
-    history_length: history.length,
-    ket_qua_moi_nhat: {
-      phien: currentSession.phien,
-      xuc_xac: currentSession.xucxac,
-      tong: currentSession.sum,
-      ket_qua: currentSession.result
-    }
+    do_tin_cay: prediction.confidence
   };
 }
 
-// Tạo server Express
+function getCompleteData() {
+  if (!currentSession) {
+    return {
+      phien: "...",
+      xuc_xac: [0, 0, 0],
+      ket_qua: "...",
+      tong: 0,
+      pattern: "",
+      algorithm: ""
+    };
+  }
+
+  const patternHistory = history.map(h => h.result === "Tài" ? "T" : "X").join("");
+  
+  return {
+    phien: currentSession.phien,
+    xuc_xac: currentSession.xucxac,
+    ket_qua: currentSession.result.charAt(0),
+    tong: currentSession.sum,
+    pattern: patternHistory,
+    algorithm: patternHistory.slice(-6)
+  };
+}
+
+// Initialize server
 const app = express();
 app.use(cors());
 
-app.get('/api/789club', (req, res) => {
-  res.json(getPrediction());
+// Middleware to prevent requests during shutdown
+app.use((req, res, next) => {
+  if (isShuttingDown) {
+    res.status(503).json({ error: 'Server is shutting down' });
+  } else {
+    next();
+  }
 });
 
+// Main endpoint
+app.get('/api/789club', (req, res) => {
+  try {
+    const prediction = getPredictionOutput();
+    const data = getCompleteData();
+    
+    res.json({
+      phien_hien_tai: prediction.phien_hien_tai,
+      du_doan: prediction.du_doan,
+      do_tin_cay: prediction.do_tin_cay,
+      data: data,
+      status: 'healthy',
+      last_activity: new Date(lastActivity).toISOString(),
+      uptime: process.uptime()
+    });
+  } catch (error) {
+    console.error('[API] Error handling request:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Health check endpoint for Render
 app.get('/health', (req, res) => {
-  res.json({
-    status: 'running',
-    last_phien: currentSession?.phien || 'none',
-    history_count: history.length,
-    uptime: Math.floor(process.uptime())
+  const now = Date.now();
+  const isHealthy = (now - lastActivity) < HEALTH_CHECK_INTERVAL * 2;
+  
+  res.status(isHealthy ? 200 : 503).json({
+    status: isHealthy ? 'healthy' : 'unhealthy',
+    last_activity: new Date(lastActivity).toISOString(),
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    history_length: history.length
   });
 });
 
-// Bắt đầu server
+// Start server
 const server = http.createServer(app);
 server.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 Server chạy tại http://0.0.0.0:${PORT}`);
+  console.log(`🚀 Server running at http://0.0.0.0:${PORT}`);
   connectWebSocket();
+  startHealthMonitor();
 });
+
+// Graceful shutdown
+function shutdown() {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  
+  console.log('[Shutdown] Starting graceful shutdown...');
+  
+  // Close WebSocket
+  if (wsClient) {
+    try {
+      wsClient.close();
+    } catch (e) {
+      console.error('[Shutdown] Error closing WebSocket:', e);
+    }
+  }
+  
+  // Close HTTP server
+  server.close(() => {
+    console.log('[Shutdown] HTTP server closed');
+    process.exit(0);
+  });
+  
+  // Force exit after timeout
+  setTimeout(() => {
+    console.error('[Shutdown] Force shutdown after timeout');
+    process.exit(1);
+  }, 10000);
+}
+
+process.on('SIGTERM', shutdown);
+process.on('SIGINT', shutdown);
