@@ -390,7 +390,7 @@ function getPrediction() {
 const app = express();
 app.use(cors());
 
-app.get('/api/68gb', (req, res) => {
+app.get('/api/789club', (req, res) => {
   res.json(getPrediction());
 });
 
