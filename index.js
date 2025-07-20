@@ -17,7 +17,7 @@ let wsClient = null;
 let lastActivity = Date.now();
 let isShuttingDown = false;
 
-// Pattern predictions (unchanged)
+// Pattern predictions (giữ nguyên như code cũ)
 const patternPredictions = {
   "TTT": { prediction: "Tài", confidence: 95 },
   "TTX": { prediction: "Xỉu", confidence: 85 },
@@ -242,7 +242,7 @@ const patternPredictions = {
   "XTXXXXT": { prediction: "Tài", confidence: 60 }
 };
 
-// Health monitoring
+// Health monitoring (giữ nguyên)
 function startHealthMonitor() {
   setInterval(() => {
     const now = Date.now();
@@ -263,7 +263,7 @@ function startHealthMonitor() {
   }, HEALTH_CHECK_INTERVAL);
 }
 
-// WebSocket connection
+// WebSocket connection (đã sửa)
 function connectWebSocket() {
   if (isShuttingDown) return;
   
@@ -313,6 +313,7 @@ function connectWebSocket() {
           result: result.Ket_qua,
           sum: result.Tong,
           xucxac: [result.Xuc_xac_1, result.Xuc_xac_2, result.Xuc_xac_3],
+          timestamp: Date.now()
         };
         
         if (!history.some(h => h.phien === result.Phien)) {
@@ -349,7 +350,7 @@ function connectWebSocket() {
   });
 }
 
-// Prediction functions
+// Prediction functions (đã sửa)
 function getPredictionOutput() {
   if (!currentSession) {
     return {
@@ -369,9 +370,9 @@ function getPredictionOutput() {
   }
 
   return {
-    phien_hien_tai: currentSession.phien + 1,
+    phien_hien_tai: currentSession.phien,
     du_doan: prediction.prediction,
-    do_tin_cay: prediction.confidence
+    do_tin_cay: prediction.confidence + "%"
   };
 }
 
@@ -399,7 +400,7 @@ function getCompleteData() {
   };
 }
 
-// Initialize server
+// Initialize server (giữ nguyên)
 const app = express();
 app.use(cors());
 
@@ -411,7 +412,7 @@ app.use((req, res, next) => {
   }
 });
 
-// Main endpoint
+// Main endpoint (đã sửa)
 app.get('/api/789club', (req, res) => {
   try {
     const prediction = getPredictionOutput();
@@ -432,7 +433,7 @@ app.get('/api/789club', (req, res) => {
   }
 });
 
-// Health check endpoint
+// Health check endpoint (giữ nguyên)
 app.get('/health', (req, res) => {
   const now = Date.now();
   const isHealthy = (now - lastActivity) < HEALTH_CHECK_INTERVAL * 2;
@@ -446,7 +447,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Start server
+// Start server (giữ nguyên)
 const server = http.createServer(app);
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running at http://0.0.0.0:${PORT}`);
@@ -454,7 +455,7 @@ server.listen(PORT, '0.0.0.0', () => {
   startHealthMonitor();
 });
 
-// Graceful shutdown
+// Graceful shutdown (giữ nguyên)
 function shutdown() {
   if (isShuttingDown) return;
   isShuttingDown = true;
