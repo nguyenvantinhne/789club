@@ -20,6 +20,7 @@ let isShuttingDown = false;
 
 // Pattern predictions (keep all existing pattern predictions)
 const patternPredictions = {
+{
   "TTT": { "prediction": "Tài", "confidence": 78 },
   "TTX": { "prediction": "Xỉu", "confidence": 89 },
   "TXT": { "prediction": "Tài", "confidence": 65 },
