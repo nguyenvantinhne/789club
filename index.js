@@ -372,7 +372,7 @@ function getPredictionOutput() {
   return {
     phien_hien_tai: currentSession.phien,
     du_doan: prediction.prediction,
-    do_tin_cay: prediction.confidence + "%"
+    do_tin_cay: prediction.confidence
   };
 }
 
