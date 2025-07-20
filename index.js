@@ -5,7 +5,7 @@ const cors = require('cors');
 
 // Configuration
 const PORT = process.env.PORT || 3000;
-const WS_URL = 'ws://160.191.243.121:6789/ws/789';
+const WS_URL = 'ws://160.191.243.121:6789/ws/789?id=mrtinhios&key=vantinh592007pq';
 const HISTORY_MAX_LENGTH = 200;
 const RECONNECT_DELAY = 5000; // 5 seconds
 const HEALTH_CHECK_INTERVAL = 30000; // 30 seconds
