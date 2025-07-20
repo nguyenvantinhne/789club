@@ -13,14 +13,12 @@ const HEALTH_CHECK_INTERVAL = 30000; // 30 seconds
 // Global variables
 let history = [];
 let currentSession = null;
-let nextSession = null; // Added to track next session
 let wsClient = null;
 let lastActivity = Date.now();
 let isShuttingDown = false;
 
-// Pattern predictions (keep all existing pattern predictions)
+// Pattern predictions (giữ nguyên như code cũ)
 const patternPredictions = {
-{
   "TTT": { "prediction": "Tài", "confidence": 78 },
   "TTX": { "prediction": "Xỉu", "confidence": 89 },
   "TXT": { "prediction": "Tài", "confidence": 65 },
@@ -149,7 +147,7 @@ const patternPredictions = {
   "XXXXXX": { "prediction": "Xỉu", "confidence": 100 }
 };
 
-// Health monitoring
+// Health monitoring (giữ nguyên)
 function startHealthMonitor() {
   setInterval(() => {
     const now = Date.now();
@@ -170,7 +168,7 @@ function startHealthMonitor() {
   }, HEALTH_CHECK_INTERVAL);
 }
 
-// WebSocket connection
+// WebSocket connection (đã sửa)
 function connectWebSocket() {
   if (isShuttingDown) return;
   
@@ -224,21 +222,12 @@ function connectWebSocket() {
         };
         
         if (!history.some(h => h.phien === result.Phien)) {
-          // When we get a new result, current becomes previous, and we calculate next
-          if (currentSession) {
-            nextSession = {
-              phien: parseInt(currentSession.phien) + 1,
-              predicted: true
-            };
-          }
-          
           history.push(historyEntry);
           if (history.length > HISTORY_MAX_LENGTH) {
             history = history.slice(-HISTORY_MAX_LENGTH);
           }
-          
-          currentSession = historyEntry;
         }
+        currentSession = historyEntry;
       }
     } catch (error) {
       console.error('[WebSocket] Message processing error:', error);
@@ -266,12 +255,11 @@ function connectWebSocket() {
   });
 }
 
-// Prediction functions
+// Prediction functions (đã sửa)
 function getPredictionOutput() {
   if (!currentSession) {
     return {
       phien_hien_tai: "...",
-      phien_tiep_theo: "...",
       du_doan: "...",
       do_tin_cay: "..."
     };
@@ -288,9 +276,8 @@ function getPredictionOutput() {
 
   return {
     phien_hien_tai: currentSession.phien,
-    phien_tiep_theo: nextSession ? nextSession.phien : parseInt(currentSession.phien) + 1,
     du_doan: prediction.prediction,
-    do_tin_cay: prediction.confidence
+    do_tin_cay: prediction.confidence + "%"
   };
 }
 
@@ -318,7 +305,7 @@ function getCompleteData() {
   };
 }
 
-// Initialize server
+// Initialize server (giữ nguyên)
 const app = express();
 app.use(cors());
 
@@ -330,7 +317,7 @@ app.use((req, res, next) => {
   }
 });
 
-// Main endpoint
+// Main endpoint (đã sửa)
 app.get('/api/789club', (req, res) => {
   try {
     const prediction = getPredictionOutput();
@@ -338,7 +325,6 @@ app.get('/api/789club', (req, res) => {
     
     res.json({
       phien_hien_tai: prediction.phien_hien_tai,
-      phien_tiep_theo: prediction.phien_tiep_theo,
       du_doan: prediction.du_doan,
       do_tin_cay: prediction.do_tin_cay,
       data: data,
@@ -352,7 +338,7 @@ app.get('/api/789club', (req, res) => {
   }
 });
 
-// Health check endpoint
+// Health check endpoint (giữ nguyên)
 app.get('/health', (req, res) => {
   const now = Date.now();
   const isHealthy = (now - lastActivity) < HEALTH_CHECK_INTERVAL * 2;
@@ -366,7 +352,7 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Start server
+// Start server (giữ nguyên)
 const server = http.createServer(app);
 server.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Server running at http://0.0.0.0:${PORT}`);
@@ -374,7 +360,7 @@ server.listen(PORT, '0.0.0.0', () => {
   startHealthMonitor();
 });
 
-// Graceful shutdown
+// Graceful shutdown (giữ nguyên)
 function shutdown() {
   if (isShuttingDown) return;
   isShuttingDown = true;
