@@ -2,7 +2,7 @@
   "name": "sunwin-predictor-api",
   "version": "1.0.0",
   "description": "API for predicting Sunwin game results using multiple analysis models",
-  "main": "index.js",
+  "main": "789dudoan.js",
   "scripts": {
     "start": "node 789dudoan.js",
     "dev": "nodemon 789dudoan.js",
