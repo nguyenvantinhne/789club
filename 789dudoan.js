@@ -4,8 +4,8 @@ const WebSocket = require('ws');
 const cors = require('cors');
 
 // Configuration
-const PORT = process.env.PORT || 3000; // Use Render's port environment variable
-const WS_URL = 'ws://160.191.243.121:3060/?id=mrtinhios&key=vantinh5907pq';
+const PORT = process.env.PORT || 3000;
+const WS_URL = 'ws://160.191.243.121:3000/ws/789'; // Updated WebSocket URL
 const HISTORY_MAX_LENGTH = 200;
 const RECONNECT_DELAY = 5000; // 5 seconds
 const HEALTH_CHECK_INTERVAL = 30000; // 30 seconds
@@ -17,7 +17,7 @@ let wsClient = null;
 let lastActivity = Date.now();
 let isShuttingDown = false;
 
-// Keep the patternPredictions object exactly as you have it
+// Pattern predictions (unchanged)
 const patternPredictions = {
   "TTT": { prediction: "Tài", confidence: 95 },
   "TTX": { prediction: "Xỉu", confidence: 85 },
@@ -239,55 +239,7 @@ const patternPredictions = {
   "XTXXTXX": { prediction: "Xỉu", confidence: 83 },
   "XTXXXTT": { prediction: "Tài", confidence: 65 },
   "XTXXXTX": { prediction: "Xỉu", confidence: 70 },
-  "XTXXXXT": { prediction: "Tài", confidence: 60 },
-  "XTXXXXX": { prediction: "Xỉu", confidence: 99 },
-  "XXTTTTT": { prediction: "Tài", confidence: 74 },
-  "XXTTTTX": { prediction: "Xỉu", confidence: 79 },
-  "XXTTTXT": { prediction: "Tài", confidence: 69 },
-  "XXTTTXX": { prediction: "Xỉu", confidence: 84 },
-  "XXTTXTT": { prediction: "Tài", confidence: 69 },
-  "XXTTXTX": { prediction: "Xỉu", confidence: 74 },
-  "XXTTXXT": { prediction: "Tài", confidence: 64 },
-  "XXTTXXX": { prediction: "Xỉu", confidence: 91 },
-  "XXTXTXT": { prediction: "Tài", confidence: 69 },
-  "XXTXTXX": { prediction: "Xỉu", confidence: 79 },
-  "XXTXXTT": { prediction: "Tài", confidence: 69 },
-  "XXTXXTX": { prediction: "Xỉu", confidence: 74 },
-  "XXTXXXT": { prediction: "Tài", confidence: 64 },
-  "XXTXXXX": { prediction: "Xỉu", confidence: 95 },
-  "XXXTTTT": { prediction: "Tài", confidence: 69 },
-  "XXXTTTX": { prediction: "Xỉu", confidence: 74 },
-  "XXXTTXT": { prediction: "Tài", confidence: 69 },
-  "XXXTTXX": { prediction: "Xỉu", confidence: 79 },
-  "XXXTXTX": { prediction: "Xỉu", confidence: 74 },
-  "XXXTXXT": { prediction: "Tài", confidence: 69 },
-  "XXXTXXX": { prediction: "Xỉu", confidence: 87 },
-  "XXXXTTT": { prediction: "Tài", confidence: 69 },
-  "XXXXTTX": { prediction: "Xỉu", confidence: 69 },
-  "XXXXTXT": { prediction: "Tài", confidence: 64 },
-  "XXXXTXX": { prediction: "Xỉu", confidence: 75 },
-  "XXXXXTT": { prediction: "Tài", confidence: 65 },
-  "XXXXXTX": { prediction: "Xỉu", confidence: 70 },
-  "XXXXXXT": { prediction: "Tài", confidence: 60 },
-  "XXXXXXX": { prediction: "Xỉu", confidence: 99 },
-
-  // 8-dice patterns (256 variants) - Ultra VIP system
-  "TTTTTTTT": { prediction: "Tài", confidence: 86 },
-  "TTTTTTTX": { prediction: "Tài", confidence: 96 },
-  "TTTTTTXT": { prediction: "Tài", confidence: 91 },
-  "TTTTTTXX": { prediction: "Xỉu", confidence: 89 },
-  "TTTTTXXX": { prediction: "Xỉu", confidence: 97 },
-  "TTTTXXXX": { prediction: "Xỉu", confidence: 98 },
-  "TTTXXXXX": { prediction: "Xỉu", confidence: 99 },
-  "TTXXXXXX": { prediction: "Xỉu", confidence: 91 },
-  "TXXXXXXX": { prediction: "Xỉu", confidence: 99.7 },
-  "XXXXXXXX": { prediction: "Xỉu", confidence: 91 },
-  "XXXXXXTT": { prediction: "Tài", confidence: 72 },
-  "XXXXXTTT": { prediction: "Tài", confidence: 77 },
-  "XXXXTTTT": { prediction: "Tài", confidence: 82 },
-  "XXXTTTTT": { prediction: "Tài", confidence: 87 },
-  "XXTTTTTT": { prediction: "Tài", confidence: 92 },
-  "XTTTTTTT": { prediction: "Tài", confidence: 96 }
+  "XTXXXXT": { prediction: "Tài", confidence: 60 }
 };
 
 // Health monitoring
@@ -301,11 +253,9 @@ function startHealthMonitor() {
       connectWebSocket();
     }
     
-    // Log memory usage
     const memoryUsage = process.memoryUsage();
     console.log(`[Health] Memory: ${Math.round(memoryUsage.heapUsed / 1024 / 1024)}MB used, ${Math.round(memoryUsage.heapTotal / 1024 / 1024)}MB total`);
     
-    // Prevent memory leaks
     if (history.length > HISTORY_MAX_LENGTH * 1.2) {
       console.log(`[Health] Trimming history from ${history.length} to ${HISTORY_MAX_LENGTH}`);
       history = history.slice(-HISTORY_MAX_LENGTH);
@@ -313,13 +263,12 @@ function startHealthMonitor() {
   }, HEALTH_CHECK_INTERVAL);
 }
 
-// WebSocket connection with robust error handling
+// WebSocket connection
 function connectWebSocket() {
   if (isShuttingDown) return;
   
   console.log('[WebSocket] Connecting to server...');
   
-  // Close existing connection if any
   if (wsClient) {
     try {
       wsClient.removeAllListeners();
@@ -332,15 +281,14 @@ function connectWebSocket() {
   }
 
   wsClient = new WebSocket(WS_URL, {
-    handshakeTimeout: 10000, // 10 seconds timeout
-    maxPayload: 1048576, // 1MB max payload
+    handshakeTimeout: 10000,
+    maxPayload: 1048576,
   });
   
   wsClient.on('open', () => {
     console.log('[WebSocket] ✅ Connection established');
     lastActivity = Date.now();
     
-    // Send initial ping to keep connection alive
     setInterval(() => {
       if (wsClient && wsClient.readyState === WebSocket.OPEN) {
         try {
@@ -349,7 +297,7 @@ function connectWebSocket() {
           console.error('[WebSocket] Ping error:', e);
         }
       }
-    }, 45000); // Ping every 45 seconds
+    }, 45000);
   });
   
   wsClient.on('message', (data) => {
@@ -357,7 +305,7 @@ function connectWebSocket() {
       lastActivity = Date.now();
       const result = JSON.parse(data.toString());
       
-      if (result.Phien && result.Ket_qua && result.Xuc_xac_1 !== undefined) {
+      if (result.Phien && result.Xuc_xac_1 !== undefined) {
         console.log(`[WebSocket] Received result - Session ${result.Phien}: ${result.Ket_qua}`);
         
         const historyEntry = {
@@ -367,7 +315,6 @@ function connectWebSocket() {
           xucxac: [result.Xuc_xac_1, result.Xuc_xac_2, result.Xuc_xac_3],
         };
         
-        // Prevent duplicates and limit history size
         if (!history.some(h => h.phien === result.Phien)) {
           history.push(historyEntry);
           if (history.length > HISTORY_MAX_LENGTH) {
@@ -391,7 +338,6 @@ function connectWebSocket() {
   
   wsClient.on('error', (err) => {
     console.error('[WebSocket] Error:', err);
-    // Error event is usually followed by close event, which will trigger reconnect
   });
   
   wsClient.on('ping', () => {
@@ -403,7 +349,7 @@ function connectWebSocket() {
   });
 }
 
-// Prediction functions (unchanged from your original)
+// Prediction functions (unchanged)
 function getPredictionOutput() {
   if (!currentSession) {
     return {
@@ -446,7 +392,7 @@ function getCompleteData() {
   return {
     phien: currentSession.phien,
     xuc_xac: currentSession.xucxac,
-    ket_qua: currentSession.result.charAt(0),
+    ket_qua: currentSession.result,
     tong: currentSession.sum,
     pattern: patternHistory,
     algorithm: patternHistory.slice(-6)
@@ -457,7 +403,6 @@ function getCompleteData() {
 const app = express();
 app.use(cors());
 
-// Middleware to prevent requests during shutdown
 app.use((req, res, next) => {
   if (isShuttingDown) {
     res.status(503).json({ error: 'Server is shutting down' });
@@ -487,7 +432,7 @@ app.get('/api/789club', (req, res) => {
   }
 });
 
-// Health check endpoint for Render
+// Health check endpoint
 app.get('/health', (req, res) => {
   const now = Date.now();
   const isHealthy = (now - lastActivity) < HEALTH_CHECK_INTERVAL * 2;
@@ -516,7 +461,6 @@ function shutdown() {
   
   console.log('[Shutdown] Starting graceful shutdown...');
   
-  // Close WebSocket
   if (wsClient) {
     try {
       wsClient.close();
@@ -525,13 +469,11 @@ function shutdown() {
     }
   }
   
-  // Close HTTP server
   server.close(() => {
     console.log('[Shutdown] HTTP server closed');
     process.exit(0);
   });
   
-  // Force exit after timeout
   setTimeout(() => {
     console.error('[Shutdown] Force shutdown after timeout');
     process.exit(1);
